@@ -78,6 +78,56 @@ GLOSSARY = {
 }
 
 
+import re
+
+# แปลคำศัพท์ในชื่อคอลัมน์เป็นไทย ใช้สร้างคำอธิบายโดยประมาณเมื่อชื่อไม่อยู่ใน GLOSSARY
+TOKENS = {
+    "loan": "เงินกู้", "amnt": "ยอด", "amount": "ยอด", "funded": "ที่ได้รับอนุมัติ", "int": "ดอกเบี้ย",
+    "rate": "อัตรา", "installment": "ค่างวด", "term": "ระยะเวลาผ่อน", "grade": "เกรด", "sub": "ย่อย",
+    "emp": "การจ้างงาน", "length": "ระยะเวลา", "annual": "ต่อปี", "inc": "รายได้", "income": "รายได้",
+    "monthly": "ต่อเดือน", "dti": "ภาระหนี้ต่อรายได้", "fico": "คะแนนเครดิต FICO", "score": "คะแนน",
+    "range": "ช่วง", "low": "ต่ำ", "high": "สูง", "delinq": "การค้างชำระ", "inq": "การสอบถามเครดิต",
+    "pub": "สาธารณะ", "rec": "บันทึก", "record": "บันทึก", "bankruptcies": "การล้มละลาย", "tax": "ภาษี",
+    "liens": "การอายัดทรัพย์", "collections": "การเรียกเก็บหนี้", "chargeoff": "การตัดหนี้สูญ",
+    "open": "ที่เปิดอยู่", "op": "ที่เปิดอยู่", "acc": "บัญชี", "accts": "บัญชี", "acct": "บัญชี",
+    "tl": "บัญชีเครดิต", "bc": "บัตรเครดิต", "il": "สินเชื่อผ่อนงวด", "rev": "หมุนเวียน",
+    "revol": "หมุนเวียน", "mort": "สินเชื่อบ้าน", "mortgage": "สินเชื่อบ้าน", "sats": "ที่สถานะดี",
+    "actv": "ที่ยังใช้งาน", "num": "จำนวน", "tot": "รวม", "total": "รวม", "avg": "เฉลี่ย", "max": "สูงสุด",
+    "min": "ต่ำสุด", "pct": "สัดส่วน (%)", "percent": "สัดส่วน (%)", "ratio": "อัตราส่วน",
+    "util": "การใช้วงเงิน", "bal": "ยอดคงค้าง", "cur": "ปัจจุบัน", "lim": "วงเงิน", "limit": "วงเงิน",
+    "cred": "เครดิต", "credit": "เครดิต", "hi": "สูงสุด", "debt": "หนี้", "mths": "เดือน", "mth": "เดือน",
+    "mo": "เดือน", "months": "เดือน", "yrs": "ปี", "yr": "ปี", "years": "ปี", "year": "ปี",
+    "since": "นับจาก", "sin": "นับจาก", "last": "ล่าสุด", "rcnt": "ล่าสุด", "recent": "ล่าสุด",
+    "old": "เก่าที่สุด", "oldest": "เก่าที่สุด", "earliest": "แรกสุด", "past": "ที่ผ่านมา",
+    "issue": "ที่ออกสินเชื่อ", "cr": "เครดิต", "line": "บัญชี", "gt": "มากกว่า", "lt": "น้อยกว่า",
+    "addr": "ที่อยู่", "state": "รัฐ", "home": "ที่อยู่อาศัย", "ownership": "การถือครอง",
+    "purpose": "วัตถุประสงค์", "verification": "การตรวจสอบ", "status": "สถานะ", "zip": "รหัสไปรษณีย์",
+    "missing": "ค่าที่ขาดหาย", "flag": "ตัวบ่งชี้", "is": "ตัวบ่งชี้ว่า", "has": "ตัวบ่งชี้ว่ามี",
+    "new": "ใหม่", "all": "ทั้งหมด", "pymnt": "การชำระเงิน", "payment": "การชำระเงิน", "type": "ประเภท",
+    "joint": "ร่วม", "app": "ใบสมัคร",
+}
+
+
+def auto_describe(name):
+    parts = [p for p in name.lower().replace("-", "_").split("_") if p]
+    pre = ""
+    if parts and parts[0] in ("log", "sqrt"):
+        pre = "ค่าลอการิทึมของ " if parts[0] == "log" else "รากที่สองของ "
+        parts = parts[1:]
+    out, known = [], 0
+    for p in parts:
+        m = re.fullmatch(r"(\d+)([a-z]+)", p)
+        if p in TOKENS:
+            out.append(TOKENS[p]); known += 1
+        elif m and m.group(2) in TOKENS:
+            out.append(m.group(1) + " " + TOKENS[m.group(2)]); known += 1
+        else:
+            out.append(p)
+    if known == 0:
+        return f"ค่าตัวเลขของตัวแปร '{name}' (ยังไม่มีคำแปลสำหรับชื่อนี้ ดูความหมายจาก data dictionary ของชุดข้อมูล)"
+    return f"{pre}{' '.join(out)} (แปลจากชื่อตัวแปร '{name}' โดยประมาณ)"
+
+
 def load_descriptions():
     d = dict(GLOSSARY)
     p = os.path.join(HERE, "feature_descriptions.json")
@@ -91,7 +141,7 @@ DESC = load_descriptions()
 
 
 def describe(name):
-    return DESC.get(name, f"ยังไม่มีคำอธิบายของตัวแปรนี้ (ชื่อในชุดข้อมูล: {name})")
+    return DESC[name] if name in DESC else auto_describe(name)
 
 
 def pct(x):
